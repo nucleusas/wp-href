@@ -7,13 +7,11 @@ class Helpers
     public static function get_site_locale($format = 'raw', $blog_id = null)
     {
         $locale = '';
+        $current_blog_id = $blog_id ?: get_current_blog_id();
+        $locale = get_blog_option($current_blog_id, 'WPLANG');
 
-        if ($blog_id) {
-            switch_to_blog($blog_id);
-            $locale = get_locale();
-            restore_current_blog();
-        } else {
-            $locale = get_locale();
+        if (empty($locale)) {
+            $locale = 'en_US'; // if WPLANG is empty, it's set to WordPress default en_US
         }
 
         $settings = get_site_option('wp_hreflang_network_settings', array(
@@ -21,7 +19,6 @@ class Helpers
         ));
 
         // Check if there's a locale override set in network settings for current site
-        $current_blog_id = $blog_id ?: get_current_blog_id();
         if (isset($settings['locales'][$current_blog_id])) {
             $locale = $settings['locales'][$current_blog_id];
         }
