@@ -7,6 +7,7 @@ use WP_Hreflang\Helpers;
 class Network_Settings
 {
     private $option_name = 'wp_hreflang_network_settings';
+    private $archive_pages_option = 'wp_hreflang_archive_pages';
 
     public function init()
     {
@@ -55,6 +56,23 @@ class Network_Settings
         );
 
         update_site_option($this->option_name, $settings);
+
+        // Handle archive pages
+        $archive_pages = array();
+        $archive_names = $_POST['archive_pages']['name'] ?? array();
+        $archive_ids = $_POST['archive_pages']['id'] ?? array();
+
+        foreach ($archive_names as $index => $name) {
+            if (!empty($name)) {
+                $id = !empty($archive_ids[$index]) ? sanitize_title($archive_ids[$index]) : sanitize_title($name);
+                $archive_pages[] = array(
+                    'id' => $id,
+                    'name' => sanitize_text_field($name)
+                );
+            }
+        }
+
+        update_site_option($this->archive_pages_option, $archive_pages);
         $this->update_all_site_hreflangs();
 
         wp_redirect(add_query_arg(array(
@@ -200,6 +218,7 @@ class Network_Settings
             'post_types' => array('post', 'page')
         ));
 
+        $archive_pages = get_site_option($this->archive_pages_option, array());
         $sites = get_sites();
 ?>
         <div class="wrap">
@@ -233,6 +252,30 @@ class Network_Settings
                         <?php endforeach; ?>
                     </div>
                     <button type="button" id="add-locale" class="button"><?php _e('Add Locale', 'wp-hreflang'); ?></button>
+                </div>
+
+                <div class="wp-hreflang-section">
+                    <h2><?php _e('Archive Pages', 'wp-hreflang'); ?></h2>
+                    <p class="description"><?php _e('Define archive pages that can be linked between sites.', 'wp-hreflang'); ?></p>
+
+                    <div id="wp-hreflang-archive-pages">
+                        <?php foreach ($archive_pages as $page): ?>
+                            <div class="archive-page-row">
+                                <input type="text"
+                                    name="archive_pages[name][]"
+                                    value="<?php echo esc_attr($page['name']); ?>"
+                                    class="archive-name-input"
+                                    placeholder="<?php esc_attr_e('Archive Name', 'wp-hreflang'); ?>" />
+                                <input type="text"
+                                    name="archive_pages[id][]"
+                                    value="<?php echo esc_attr($page['id']); ?>"
+                                    class="archive-id-input"
+                                    placeholder="<?php esc_attr_e('Archive ID (optional)', 'wp-hreflang'); ?>" />
+                                <button type="button" class="remove-archive button"><?php _e('Remove', 'wp-hreflang'); ?></button>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <button type="button" id="add-archive-page" class="button"><?php _e('Add Archive Page', 'wp-hreflang'); ?></button>
                 </div>
 
                 <div class="wp-hreflang-section">
@@ -308,6 +351,21 @@ class Network_Settings
             #wp-hreflang-locales {
                 margin-top: 1em;
             }
+
+            .archive-page-row {
+                margin-bottom: 10px;
+                display: flex;
+                gap: 10px;
+            }
+            .archive-name-input {
+                width: 250px;
+            }
+            .archive-id-input {
+                width: 200px;
+            }
+            #wp-hreflang-archive-pages {
+                margin-bottom: 15px;
+            }
         </style>
 
         <script>
@@ -338,8 +396,44 @@ class Network_Settings
                 $(document).on('click', '.remove-locale', function() {
                     $(this).closest('.locale-row').remove();
                 });
+
+                // Archive pages handling
+                $('#add-archive-page').on('click', function() {
+                    var template = `
+                        <div class="archive-page-row">
+                            <input type="text"
+                                name="archive_pages[name][]"
+                                class="archive-name-input"
+                                placeholder="<?php esc_attr_e('Archive Name', 'wp-hreflang'); ?>" />
+                            <input type="text"
+                                name="archive_pages[id][]"
+                                class="archive-id-input"
+                                placeholder="<?php esc_attr_e('Archive ID (optional)', 'wp-hreflang'); ?>" />
+                            <button type="button" class="remove-archive button"><?php _e('Remove', 'wp-hreflang'); ?></button>
+                        </div>
+                    `;
+                    $('#wp-hreflang-archive-pages').append(template);
+                });
+
+                $(document).on('click', '.remove-archive', function() {
+                    $(this).closest('.archive-page-row').remove();
+                });
+                // Auto-generate ID from name on blur
+                $(document).on('blur', '.archive-name-input', function() {
+                    var idInput = $(this).siblings('.archive-id-input');
+                    if (idInput.val() === '') {
+                        idInput.val($(this).val().toLowerCase()
+                            .replace(/[^a-z0-9]+/g, '-')
+                            .replace(/^-+|-+$/g, ''));
+                    }
+                });
             });
         </script>
 <?php
+    }
+
+    public function get_archive_pages()
+    {
+        return get_site_option($this->archive_pages_option, array());
     }
 }

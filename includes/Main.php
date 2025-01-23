@@ -8,6 +8,7 @@ class Main
     private $rest_controller;
     private $hreflang_tags;
     private $settings;
+    private $site_archive_settings;
 
     public function init()
     {
@@ -25,6 +26,9 @@ class Main
     {
         $this->settings = new Admin\Network_Settings();
         $this->settings->init();
+
+        $this->site_archive_settings = new Admin\Site_Archive_Settings();
+        $this->site_archive_settings->init();
 
         $this->post = new Admin\Post();
         $this->post->init();
