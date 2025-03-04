@@ -19,15 +19,15 @@ class Hreflang_Tags
     {
         global $post;
 
-        // First try to get hreflang from post/page
-        $success = $this->output_post_hreflang_tags($post);
+        // First, try to match current URL to archive paths
+        $success = $this->output_archive_hreflang_tags();
 
         if ($success) {
             return;
         }
 
-        // If not, try to match current URL to archive paths
-        $this->output_archive_hreflang_tags();
+        // If not, try to get hreflang from post/page
+        $this->output_post_hreflang_tags($post);
     }
 
     private function output_post_hreflang_tags($post)
@@ -82,7 +82,7 @@ class Hreflang_Tags
         // Get current site's path mappings for lookup
         $path_lookup = get_option($this->site_archives_paths_option, array());
         if (empty($path_lookup)) {
-            return;
+            return false;
         }
 
         // Find matching archive page for current path
@@ -108,13 +108,13 @@ class Hreflang_Tags
         }
 
         if (!$matched_archive_id) {
-            return;
+            return false;
         }
 
         // Get network-wide mappings
         $network_mappings = get_site_option($this->network_archives_map_option, array());
         if (!isset($network_mappings[$matched_archive_id])) {
-            return;
+            return false;
         }
 
         // Build hreflang map
@@ -137,7 +137,11 @@ class Hreflang_Tags
 
         if (!empty($hreflang_map)) {
             $this->output_hreflang_links($hreflang_map);
+
+            return true;
         }
+
+        return false;
     }
 
     private function output_hreflang_links($hreflang_map)
