@@ -87,24 +87,10 @@ class Hreflang_Tags
 
         // Find matching archive page for current path
         $matched_archive_id = null;
-        $matched_values = array();
 
-        foreach ($path_lookup as $path_pattern => $archive_id) {
-            // Convert the path pattern to a regex pattern
-            $regex_pattern = str_replace(
-                array('*'),
-                array('([^/]+)'),
-                $path_pattern
-            );
-            $regex_pattern = '#^' . $regex_pattern . '$#';
-
-            if (preg_match($regex_pattern, $current_path, $matches)) {
-                $matched_archive_id = $archive_id;
-                // Store matched values (excluding the full match)
-                array_shift($matches);
-                $matched_values = $matches;
-                break;
-            }
+        // Direct path matching (no wildcards)
+        if (isset($path_lookup[$current_path])) {
+            $matched_archive_id = $path_lookup[$current_path];
         }
 
         if (!$matched_archive_id) {
@@ -122,11 +108,6 @@ class Hreflang_Tags
         $main_site_locale = Helpers::get_site_locale('key', get_main_site_id());
 
         foreach ($network_mappings[$matched_archive_id] as $locale => $url) {
-            // Replace wildcards with matched values in the full URL
-            foreach ($matched_values as $index => $value) {
-                $url = preg_replace('/\*/', $value, $url, 1);
-            }
-
             $hreflang_map[$locale] = $url;
 
             // Set x-default to the main site's URL if it exists
@@ -137,7 +118,6 @@ class Hreflang_Tags
 
         if (!empty($hreflang_map)) {
             $this->output_hreflang_links($hreflang_map);
-
             return true;
         }
 

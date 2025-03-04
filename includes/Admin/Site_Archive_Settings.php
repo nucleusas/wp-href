@@ -155,10 +155,10 @@ class Site_Archive_Settings
                                             id="archive-path-<?php echo esc_attr($page['id']); ?>"
                                             value="<?php echo esc_attr($current_paths[$page['id']] ?? ''); ?>"
                                             class="regular-text archive-path-input"
-                                            placeholder="<?php esc_attr_e('e.g. news or news/page/*', 'wp-hreflang'); ?>" />
+                                            placeholder="<?php esc_attr_e('e.g. news, cases, products', 'wp-hreflang'); ?>" />
                                     </div>
                                     <p class="description">
-                                        <?php _e('Enter the relative path for this archive page. You can use * for dynamic segments.', 'wp-hreflang'); ?>
+                                        <?php _e('Enter the relative path for this archive page.', 'wp-hreflang'); ?>
                                     </p>
                                 </td>
                             </tr>
