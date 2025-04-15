@@ -18,12 +18,19 @@ class Post
 
         add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
 
+        // Child site post changes
         add_action('add_post_meta', [$this, 'handle_add_meta'], 10, 3);
         add_action('update_post_meta', [$this, 'handle_update_meta'], 10, 4);
         add_action('delete_post_meta', [$this, 'handle_delete_meta'], 10, 3);
         add_action('wp_after_insert_post', [$this, 'handle_post_update'], 10, 3);
         add_action('wp_trash_post', [$this, 'handle_post_trash'], 10, 1);
         add_action('before_delete_post', [$this, 'handle_post_deletion'], 10, 1);
+
+        // Main site post changes (only run on main site)
+        if (is_main_site()) {
+            add_action('post_updated', [$this, 'handle_main_site_post_update'], 10, 3);
+            add_action('before_delete_post', [$this, 'handle_main_site_post_deletion'], 10, 1);
+        }
     }
 
     public function enqueue_scripts($hook)
@@ -160,4 +167,37 @@ class Post
             $this->remove_locale_from_hreflang_map($hreflang_relation);
         }
     }
+
+    public function handle_main_site_post_update($post_id, $post_after, $post_before)
+    {
+        if ($post_after->post_status !== 'publish') {
+            // If not published, remove the entire hreflang map
+            delete_post_meta($post_id, 'hreflang_map');
+            return;
+        }
+        
+        // If post was just published or permalink might have changed
+        if ($post_before->post_status !== 'publish' || 
+            $post_after->post_name !== $post_before->post_name || 
+            $post_after->post_type !== $post_before->post_type) {
+            
+            $hreflang_map = get_post_meta($post_id, 'hreflang_map', true);
+            
+            // If map exists, update main site entries only
+            if (!empty($hreflang_map)) {
+                $updated_map = Helpers::ensure_main_site_entries($hreflang_map, $post_id, true);
+                update_post_meta($post_id, 'hreflang_map', $updated_map);
+            } 
+            // If post was just published or has no map, regenerate it from scratch
+            else {
+                Helpers::rebuild_hreflang_maps($post_id);
+            }
+        }
+    }
+
+    public function handle_main_site_post_deletion($post_id)
+    {
+        delete_post_meta($post_id, 'hreflang_map');
+    }
 }
+
