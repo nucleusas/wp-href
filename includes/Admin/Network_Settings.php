@@ -84,7 +84,6 @@ class Network_Settings
 
     private function update_all_site_hreflangs()
     {
-        // Rebuild all hreflang maps whenever locales change
         $main_site_id = get_main_site_id();
 
         switch_to_blog($main_site_id);
@@ -92,17 +91,22 @@ class Network_Settings
         restore_current_blog();
 
         $sites = array_filter(get_sites(), function ($site) use ($main_site_id) {
-            return $site->blog_id !== $main_site_id;
+            return (int) $site->blog_id != (int) $main_site_id;
         });
 
         foreach ($sites as $site) {
-            switch_to_blog($site->blog_id);
-            $locale = Helpers::get_site_locale('key');
+            $site_id = $site->blog_id;
+
+            $locale = Helpers::get_site_locale('key', $site_id);
+
+            switch_to_blog($site_id);
 
             $posts_with_relations = get_posts(array(
                 'post_type' => 'any',
                 'posts_per_page' => -1,
-                'meta_key' => 'hreflang_relation',
+                'post_status' => 'publish',
+                'lang' => '',
+                'suppress_filters' => true,
                 'meta_query' => array(
                     array(
                         'key' => 'hreflang_relation',
@@ -113,13 +117,16 @@ class Network_Settings
 
             foreach ($posts_with_relations as $post) {
                 $main_site_post_id = get_post_meta($post->ID, 'hreflang_relation', true);
-                $current_permalink = get_permalink($post->ID);
-
-                switch_to_blog($main_site_id);
-                $hreflang_map = get_post_meta($main_site_post_id, 'hreflang_map', true) ?: [];
-                $hreflang_map[$locale] = $current_permalink;
-                update_post_meta($main_site_post_id, 'hreflang_map', $hreflang_map);
+                $post_id = $post->ID;
                 restore_current_blog();
+
+                $permalink = Helpers::get_permalink_via_rest($site_id, $post_id);
+
+                if ($permalink) {
+                    Helpers::update_hreflang_map($main_site_post_id, $locale, $permalink);
+                }
+
+                switch_to_blog($site_id);
             }
 
             restore_current_blog();
@@ -357,12 +364,15 @@ class Network_Settings
                 display: flex;
                 gap: 10px;
             }
+
             .archive-name-input {
                 width: 250px;
             }
+
             .archive-id-input {
                 width: 200px;
             }
+
             #wp-hreflang-archive-pages {
                 margin-bottom: 15px;
             }

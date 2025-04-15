@@ -68,26 +68,22 @@ class Post
         ]);
     }
 
-    private function add_locale_to_hreflang_map($main_site_post_id, $permalink)
+    private function add_locale_to_hreflang_map($main_site_post_id, $post_id)
     {
         $locale = Helpers::get_site_locale('key');
+        $current_site_id = get_current_blog_id();
 
-        switch_to_blog(get_main_site_id());
-        $hreflangMap = get_post_meta($main_site_post_id, 'hreflang_map', true) ?: [];
-        $hreflangMap[$locale] = $permalink;
-        update_post_meta($main_site_post_id, 'hreflang_map', $hreflangMap);
-        restore_current_blog();
+        $permalink = Helpers::get_permalink_via_rest($current_site_id, $post_id);
+
+        if ($permalink) {
+            Helpers::update_hreflang_map($main_site_post_id, $locale, $permalink);
+        }
     }
 
     private function remove_locale_from_hreflang_map($main_site_post_id)
     {
         $locale = Helpers::get_site_locale('key');
-
-        switch_to_blog(get_main_site_id());
-        $hreflangMap = get_post_meta($main_site_post_id, 'hreflang_map', true) ?: [];
-        unset($hreflangMap[$locale]);
-        update_post_meta($main_site_post_id, 'hreflang_map', $hreflangMap);
-        restore_current_blog();
+        Helpers::remove_from_hreflang_map($main_site_post_id, $locale);
     }
 
     public function handle_add_meta($post_id, $meta_key, $meta_value)
@@ -96,9 +92,7 @@ class Post
             return;
         }
 
-        $permalink = get_permalink($post_id);
-
-        $this->add_locale_to_hreflang_map($meta_value, $permalink);
+        $this->add_locale_to_hreflang_map($meta_value, $post_id);
     }
 
     public function handle_update_meta($meta_id, $post_id, $meta_key, $meta_value)
@@ -107,14 +101,12 @@ class Post
             return;
         }
 
-        $permalink = get_permalink($post_id);
-
         $old_value = get_post_meta($post_id, 'hreflang_relation', true);
         if ($old_value) {
             $this->remove_locale_from_hreflang_map($old_value);
         }
 
-        $this->add_locale_to_hreflang_map($meta_value, $permalink);
+        $this->add_locale_to_hreflang_map($meta_value, $post_id);
     }
 
     public function handle_delete_meta($meta_id, $post_id, $meta_key)
@@ -147,8 +139,7 @@ class Post
         }
 
         if ($post->post_status === 'publish') {
-            $permalink = get_permalink($post_id);
-            $this->add_locale_to_hreflang_map($hreflang_relation, $permalink);
+            $this->add_locale_to_hreflang_map($hreflang_relation, $post_id);
         } else {
             $this->remove_locale_from_hreflang_map($hreflang_relation);
         }

@@ -22,6 +22,12 @@ class REST_Controller
             'callback' => array($this, 'get_main_site_post'),
             'permission_callback' => array($this, 'check_permissions'),
         ));
+
+        register_rest_route('wp-hreflang/v1', '/get-permalink/(?P<id>\d+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_post_permalink'),
+            'permission_callback' => '__return_true', // Allow public access for cross-site requests
+        ));
     }
 
     public function search_main_site($request)
@@ -83,6 +89,32 @@ class REST_Controller
                 'id' => $post->ID,
                 'title' => $post->post_title,
             ];
+        } catch (\Exception $e) {
+            return new \WP_Error(
+                'rest_error',
+                $e->getMessage(),
+                array('status' => 500)
+            );
+        }
+    }
+
+    public function get_post_permalink($request)
+    {
+        try {
+            $post_id = $request->get_param('id');
+            $post = get_post($post_id);
+            
+            if (!$post || $post->post_status !== 'publish') {
+                return new \WP_Error(
+                    'rest_error',
+                    'Post not found or not published',
+                    array('status' => 404)
+                );
+            }
+
+            return rest_ensure_response([
+                'permalink' => get_permalink($post_id)
+            ]);
         } catch (\Exception $e) {
             return new \WP_Error(
                 'rest_error',

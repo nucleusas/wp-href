@@ -32,6 +32,10 @@ class Hreflang_Tags
 
     private function output_post_hreflang_tags($post)
     {
+        if (!$post) {
+            return false;
+        }
+        
         $post_id = is_main_site() ? $post->ID : intval(get_post_meta($post->ID, 'hreflang_relation', true));
 
         if (!$post_id) {
@@ -42,29 +46,13 @@ class Hreflang_Tags
 
         switch_to_blog($main_site_id);
         $hreflang_map = get_post_meta($post_id, 'hreflang_map', true) ?: [];
-        $main_site_permalink = get_permalink($post_id);
         restore_current_blog();
 
         if (empty($hreflang_map)) {
             return false;
         }
 
-        $localeKey = Helpers::get_site_locale('key', $main_site_id);
-        $localeKeyAlt = explode('-', $localeKey)[0] ?? null;
-
-        if (!isset($hreflang_map[$localeKey])) {
-            // Add main site's full locale (e.g. en-us) to hreflang map if not already used by another site
-            $hreflang_map[$localeKey] = $main_site_permalink;
-        } else if ($localeKeyAlt && !isset($hreflang_map[$localeKeyAlt])) {
-            // Add language-only code (e.g. en) pointing to main site if not already used by another site
-            $hreflang_map[$localeKeyAlt] = $main_site_permalink;
-        }
-
-        // Set main site URL as the default version
-        $hreflang_map['x-default'] = $main_site_permalink;
-
         $this->output_hreflang_links($hreflang_map);
-
         return true;
     }
 
