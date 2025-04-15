@@ -19,6 +19,15 @@ class Hreflang_Tags
     {
         global $post;
 
+        // Check if we should ignore URLs with query parameters
+        $settings = get_site_option('wp_hreflang_network_settings', array(
+            'ignore_query_params' => 0
+        ));
+        
+        if (!empty($settings['ignore_query_params']) && !empty($_SERVER['QUERY_STRING'])) {
+            return;
+        }
+        
         // First, try to match current URL to archive paths
         $success = $this->output_archive_hreflang_tags();
 

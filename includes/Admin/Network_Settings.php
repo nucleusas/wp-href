@@ -52,7 +52,8 @@ class Network_Settings
 
         $settings = array(
             'locales' => $locale_map,
-            'post_types' => array_filter(array_map('sanitize_text_field', $_POST['post_types'] ?? array()))
+            'post_types' => array_filter(array_map('sanitize_text_field', $_POST['post_types'] ?? array())),
+            'ignore_query_params' => isset($_POST['ignore_query_params']) ? 1 : 0
         );
 
         update_site_option($this->option_name, $settings);
@@ -222,7 +223,8 @@ class Network_Settings
     {
         $settings = get_site_option($this->option_name, array(
             'locales' => array(),
-            'post_types' => array('post', 'page')
+            'post_types' => array('post', 'page'),
+            'ignore_query_params' => 0
         ));
 
         $archive_pages = get_site_option($this->archive_pages_option, array());
@@ -302,6 +304,21 @@ class Network_Settings
                             </label>
                         <?php endforeach; ?>
                     </div>
+                </div>
+
+                <div class="wp-hreflang-section">
+                    <h2><?php _e('Advanced Options', 'wp-hreflang'); ?></h2>
+                    
+                    <p>
+                        <label>
+                            <input type="checkbox" 
+                                name="ignore_query_params" 
+                                value="1" 
+                                <?php checked($settings['ignore_query_params'], 1); ?>>
+                            <?php _e('Ignore hreflang tags on URLs with query parameters', 'wp-hreflang'); ?>
+                        </label>
+                        <p class="description"><?php _e('When enabled, hreflang tags will not be output on pages that have query parameters in the URL (e.g., ?param=value).', 'wp-hreflang'); ?></p>
+                    </p>
                 </div>
 
                 <?php submit_button(); ?>
