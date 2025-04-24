@@ -18,7 +18,7 @@ class Network_Settings
 
         add_action('update_site_option_' . $this->option_name, array($this, 'check_duplicate_locales'));
         add_action('update_option_WPLANG', array($this, 'check_duplicate_locales'));
-        
+
         // Add admin scripts for the settings page
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
     }
@@ -28,7 +28,7 @@ class Network_Settings
         if ($hook !== 'settings_page_wp-hreflang-settings') {
             return;
         }
-        
+
         // Enqueue the admin settings script
         Assets::enqueue_script(
             'wp-hreflang-admin-settings',
@@ -36,15 +36,15 @@ class Network_Settings
             ['jquery'],
             true
         );
-        
+
         // Get sites for the locales dropdown
-        $sites = array_map(function($site) {
+        $sites = array_map(function ($site) {
             return [
                 'id' => $site->blog_id,
                 'name' => get_blog_details($site->blog_id)->blogname
             ];
         }, get_sites());
-        
+
         wp_localize_script('wp-hreflang-admin-settings', 'wpHreflangAdminSettings', [
             'nonce' => wp_create_nonce('wp_hreflang_network_settings'),
             'api' => [
@@ -57,10 +57,10 @@ class Network_Settings
                 'save_settings' => __('Save Settings', 'wp-hreflang'),
                 'error' => __('Error', 'wp-hreflang'),
                 'success' => __('Settings saved successfully', 'wp-hreflang'),
-                'rebuild_title' => __('Rebuilding Hreflang Maps', 'wp-hreflang'),
-                'rebuild_desc' => __('This process may take several minutes for large sites.', 'wp-hreflang'),
-                'site_progress' => __('Site Progress:', 'wp-hreflang'),
-                'post_progress' => __('Post Progress (Current Site):', 'wp-hreflang'),
+                'rebuild_title' => __('Rebuild Hreflang Tags', 'wp-hreflang'),
+                'rebuild_desc' => __('If locales or permalink structure has changed, the hreflang tags will need to be rebuilt.', 'wp-hreflang'),
+                'site_progress' => __('Processing Sites:', 'wp-hreflang'),
+                'post_progress' => __('Processing Posts:', 'wp-hreflang'),
                 'complete' => __('Complete!', 'wp-hreflang'),
                 'cancel' => __('Cancel', 'wp-hreflang'),
                 'close' => __('Close', 'wp-hreflang'),
@@ -72,7 +72,7 @@ class Network_Settings
                 'remove' => __('Remove', 'wp-hreflang')
             ]
         ]);
-        
+
         // Enqueue the admin settings styles
         Assets::enqueue_style(
             'wp-hreflang-admin-settings',
@@ -135,7 +135,7 @@ class Network_Settings
         }
 
         update_site_option($this->archive_pages_option, $archive_pages);
-        
+
         Helpers::rebuild_hreflang_maps();
 
         wp_redirect(add_query_arg(array(
@@ -244,7 +244,7 @@ class Network_Settings
         <div class="wrap">
             <h1><?php _e('Hreflang Network Settings', 'wp-hreflang'); ?></h1>
             <div id="wp-hreflang-settings-message" class="notice" style="display: none;"></div>
-            
+
             <form id="wp-hreflang-settings-form" method="post">
                 <?php wp_nonce_field('wp_hreflang_network_settings'); ?>
 
@@ -321,16 +321,16 @@ class Network_Settings
 
                 <div class="wp-hreflang-section">
                     <h2><?php _e('Advanced Options', 'wp-hreflang'); ?></h2>
-                    
+
                     <p>
                         <label>
-                            <input type="checkbox" 
-                                name="ignore_query_params" 
-                                value="1" 
+                            <input type="checkbox"
+                                name="ignore_query_params"
+                                value="1"
                                 <?php checked($settings['ignore_query_params'], 1); ?>>
                             <?php _e('Ignore hreflang tags on URLs with query parameters', 'wp-hreflang'); ?>
                         </label>
-                        <p class="description"><?php _e('When enabled, hreflang tags will not be output on pages that have query parameters in the URL (e.g., ?param=value).', 'wp-hreflang'); ?></p>
+                    <p class="description"><?php _e('When enabled, hreflang tags will not be output on pages that have query parameters in the URL (e.g., ?param=value).', 'wp-hreflang'); ?></p>
                     </p>
                 </div>
 
@@ -338,13 +338,13 @@ class Network_Settings
                     <button type="submit" id="save-settings-button" class="button button-primary"><?php _e('Save Settings', 'wp-hreflang'); ?></button>
                 </div>
             </form>
-            
+
             <!-- Progress Modal -->
             <div id="wp-hreflang-progress-modal" class="wp-hreflang-modal" style="display: none;">
                 <div class="wp-hreflang-modal-content">
                     <h2 id="wp-hreflang-progress-title"></h2>
                     <p id="wp-hreflang-progress-desc"></p>
-                    
+
                     <div class="wp-hreflang-progress-section">
                         <h3 id="wp-hreflang-site-progress-label"></h3>
                         <div class="wp-hreflang-progress-text">
@@ -354,7 +354,7 @@ class Network_Settings
                             <div id="wp-hreflang-site-progress" class="wp-hreflang-progress-bar-inner"></div>
                         </div>
                     </div>
-                    
+
                     <div class="wp-hreflang-progress-section">
                         <h3 id="wp-hreflang-post-progress-label"></h3>
                         <div class="wp-hreflang-progress-text">
@@ -364,7 +364,7 @@ class Network_Settings
                             <div id="wp-hreflang-post-progress" class="wp-hreflang-progress-bar-inner"></div>
                         </div>
                     </div>
-                    
+
                     <div class="wp-hreflang-modal-buttons">
                         <button id="wp-hreflang-cancel-button" class="button"><?php _e('Cancel', 'wp-hreflang'); ?></button>
                         <button id="wp-hreflang-start-button" class="button button-primary"><?php _e('Start Rebuild', 'wp-hreflang'); ?></button>
