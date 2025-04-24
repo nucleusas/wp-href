@@ -3,6 +3,7 @@
 namespace WP_Hreflang\Admin;
 
 use WP_Hreflang\Helpers;
+use WP_Hreflang\Assets;
 
 class Network_Settings
 {
@@ -12,12 +13,72 @@ class Network_Settings
     public function init()
     {
         add_action('network_admin_menu', array($this, 'add_network_settings_page'));
-        add_action('network_admin_edit_wp_hreflang_update_network_settings', array($this, 'update_network_settings'));
         add_action('admin_notices', array($this, 'display_duplicate_locale_notice'));
         add_action('network_admin_notices', array($this, 'display_duplicate_locale_notice'));
 
         add_action('update_site_option_' . $this->option_name, array($this, 'check_duplicate_locales'));
         add_action('update_option_WPLANG', array($this, 'check_duplicate_locales'));
+
+        // Add admin scripts for the settings page
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+    }
+
+    public function enqueue_admin_scripts($hook)
+    {
+        if ($hook !== 'settings_page_wp-hreflang-settings') {
+            return;
+        }
+
+        // Enqueue the admin settings script
+        Assets::enqueue_script(
+            'wp-hreflang-admin-settings',
+            'admin-settings',
+            ['jquery'],
+            true
+        );
+
+        // Get sites for the locales dropdown
+        $sites = array_map(function ($site) {
+            return [
+                'id' => $site->blog_id,
+                'name' => get_blog_details($site->blog_id)->blogname
+            ];
+        }, get_sites());
+
+        wp_localize_script('wp-hreflang-admin-settings', 'wpHreflangAdminSettings', [
+            'nonce' => wp_create_nonce('wp_hreflang_network_settings'),
+            'api' => [
+                'root' => esc_url_raw(rest_url()),
+                'nonce' => wp_create_nonce('wp_rest'),
+            ],
+            'sites' => $sites,
+            'i18n' => [
+                'processing' => __('Processing...', 'wp-hreflang'),
+                'save_settings' => __('Save Settings', 'wp-hreflang'),
+                'error' => __('Error', 'wp-hreflang'),
+                'success' => __('Settings saved successfully', 'wp-hreflang'),
+                'rebuild_title' => __('Rebuild Hreflang Tags', 'wp-hreflang'),
+                'rebuild_desc' => __('If locales or permalink structure has changed, the hreflang tags will need to be rebuilt.', 'wp-hreflang'),
+                'site_progress' => __('Processing Sites:', 'wp-hreflang'),
+                'post_progress' => __('Processing Posts:', 'wp-hreflang'),
+                'complete' => __('Complete!', 'wp-hreflang'),
+                'cancel' => __('Cancel', 'wp-hreflang'),
+                'close' => __('Close', 'wp-hreflang'),
+                'start_rebuild' => __('Start Rebuild', 'wp-hreflang'),
+                'select_site' => __('Select a site', 'wp-hreflang'),
+                'locale_placeholder' => __('Locale (e.g., en-US)', 'wp-hreflang'),
+                'archive_name' => __('Archive Name', 'wp-hreflang'),
+                'archive_id' => __('Archive ID (optional)', 'wp-hreflang'),
+                'remove' => __('Remove', 'wp-hreflang')
+            ]
+        ]);
+
+        // Enqueue the admin settings styles
+        Assets::enqueue_style(
+            'wp-hreflang-admin-settings',
+            'admin-settings',
+            []
+        );
     }
 
     public function add_network_settings_page()
@@ -74,7 +135,7 @@ class Network_Settings
         }
 
         update_site_option($this->archive_pages_option, $archive_pages);
-        
+
         Helpers::rebuild_hreflang_maps();
 
         wp_redirect(add_query_arg(array(
@@ -182,7 +243,9 @@ class Network_Settings
 ?>
         <div class="wrap">
             <h1><?php _e('Hreflang Network Settings', 'wp-hreflang'); ?></h1>
-            <form method="post" action="edit.php?action=wp_hreflang_update_network_settings">
+            <div id="wp-hreflang-settings-message" class="notice" style="display: none;"></div>
+
+            <form id="wp-hreflang-settings-form" method="post">
                 <?php wp_nonce_field('wp_hreflang_network_settings'); ?>
 
                 <div class="wp-hreflang-section">
@@ -258,154 +321,58 @@ class Network_Settings
 
                 <div class="wp-hreflang-section">
                     <h2><?php _e('Advanced Options', 'wp-hreflang'); ?></h2>
-                    
+
                     <p>
                         <label>
-                            <input type="checkbox" 
-                                name="ignore_query_params" 
-                                value="1" 
+                            <input type="checkbox"
+                                name="ignore_query_params"
+                                value="1"
                                 <?php checked($settings['ignore_query_params'], 1); ?>>
                             <?php _e('Ignore hreflang tags on URLs with query parameters', 'wp-hreflang'); ?>
                         </label>
-                        <p class="description"><?php _e('When enabled, hreflang tags will not be output on pages that have query parameters in the URL (e.g., ?param=value).', 'wp-hreflang'); ?></p>
+                    <p class="description"><?php _e('When enabled, hreflang tags will not be output on pages that have query parameters in the URL (e.g., ?param=value).', 'wp-hreflang'); ?></p>
                     </p>
                 </div>
 
-                <?php submit_button(); ?>
+                <div class="wp-hreflang-buttons">
+                    <button type="submit" id="save-settings-button" class="button button-primary"><?php _e('Save Settings', 'wp-hreflang'); ?></button>
+                </div>
             </form>
-        </div>
 
-        <style>
-            .wp-hreflang-section {
-                margin: 2em 0;
-                padding: 1.5em;
-                background: #fff;
-                border: 1px solid #ccd0d4;
-                box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
-            }
+            <!-- Progress Modal -->
+            <div id="wp-hreflang-progress-modal" class="wp-hreflang-modal" style="display: none;">
+                <div class="wp-hreflang-modal-content">
+                    <h2 id="wp-hreflang-progress-title"></h2>
+                    <p id="wp-hreflang-progress-desc"></p>
 
-            .wp-hreflang-section h2 {
-                margin-top: 0;
-                padding-bottom: 0.5em;
-                border-bottom: 1px solid #eee;
-            }
-
-            .locale-row {
-                display: flex;
-                gap: 1em;
-                align-items: center;
-                margin-bottom: 1em;
-            }
-
-            .site-select {
-                min-width: 250px;
-            }
-
-            .locale-input {
-                width: 150px;
-            }
-
-            #add-locale {
-                margin: 1em 0;
-            }
-
-            .post-types-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-                gap: 1em;
-                margin-top: 1em;
-            }
-
-            .post-type-label {
-                display: flex;
-                align-items: center;
-                gap: 0.5em;
-            }
-
-            #wp-hreflang-locales {
-                margin-top: 1em;
-            }
-
-            .archive-page-row {
-                margin-bottom: 10px;
-                display: flex;
-                gap: 10px;
-            }
-
-            .archive-name-input {
-                width: 250px;
-            }
-
-            .archive-id-input {
-                width: 200px;
-            }
-
-            #wp-hreflang-archive-pages {
-                margin-bottom: 15px;
-            }
-        </style>
-
-        <script>
-            jQuery(document).ready(function($) {
-                $('#add-locale').on('click', function() {
-                    var sites = <?php echo json_encode(array_map(function ($site) {
-                                    return [
-                                        'id' => $site->blog_id,
-                                        'name' => get_blog_details($site->blog_id)->blogname
-                                    ];
-                                }, $sites)); ?>;
-
-                    var siteOptions = sites.map(function(site) {
-                        return '<option value="' + site.id + '">' + site.name + '</option>';
-                    }).join('');
-
-                    var row = $('<div class="locale-row">' +
-                        '<select name="locales[site_id][]" class="site-select">' +
-                        '<option value=""><?php _e('Select a site', 'wp-hreflang'); ?></option>' +
-                        siteOptions +
-                        '</select>' +
-                        '<input type="text" name="locales[locale][]" value="" class="locale-input" placeholder="<?php esc_attr_e('Locale (e.g., en-US)', 'wp-hreflang'); ?>" />' +
-                        '<button type="button" class="remove-locale button"><?php _e('Remove', 'wp-hreflang'); ?></button>' +
-                        '</div>');
-                    $('#wp-hreflang-locales').append(row);
-                });
-
-                $(document).on('click', '.remove-locale', function() {
-                    $(this).closest('.locale-row').remove();
-                });
-
-                // Archive pages handling
-                $('#add-archive-page').on('click', function() {
-                    var template = `
-                        <div class="archive-page-row">
-                            <input type="text"
-                                name="archive_pages[name][]"
-                                class="archive-name-input"
-                                placeholder="<?php esc_attr_e('Archive Name', 'wp-hreflang'); ?>" />
-                            <input type="text"
-                                name="archive_pages[id][]"
-                                class="archive-id-input"
-                                placeholder="<?php esc_attr_e('Archive ID (optional)', 'wp-hreflang'); ?>" />
-                            <button type="button" class="remove-archive button"><?php _e('Remove', 'wp-hreflang'); ?></button>
+                    <div class="wp-hreflang-progress-section">
+                        <h3 id="wp-hreflang-site-progress-label"></h3>
+                        <div class="wp-hreflang-progress-text">
+                            <span id="wp-hreflang-current-site">0</span> / <span id="wp-hreflang-total-sites">0</span>
                         </div>
-                    `;
-                    $('#wp-hreflang-archive-pages').append(template);
-                });
+                        <div class="wp-hreflang-progress-bar">
+                            <div id="wp-hreflang-site-progress" class="wp-hreflang-progress-bar-inner"></div>
+                        </div>
+                    </div>
 
-                $(document).on('click', '.remove-archive', function() {
-                    $(this).closest('.archive-page-row').remove();
-                });
-                // Auto-generate ID from name on blur
-                $(document).on('blur', '.archive-name-input', function() {
-                    var idInput = $(this).siblings('.archive-id-input');
-                    if (idInput.val() === '') {
-                        idInput.val($(this).val().toLowerCase()
-                            .replace(/[^a-z0-9]+/g, '-')
-                            .replace(/^-+|-+$/g, ''));
-                    }
-                });
-            });
-        </script>
+                    <div class="wp-hreflang-progress-section">
+                        <h3 id="wp-hreflang-post-progress-label"></h3>
+                        <div class="wp-hreflang-progress-text">
+                            <span id="wp-hreflang-current-post">0</span> / <span id="wp-hreflang-total-posts">0</span>
+                        </div>
+                        <div class="wp-hreflang-progress-bar">
+                            <div id="wp-hreflang-post-progress" class="wp-hreflang-progress-bar-inner"></div>
+                        </div>
+                    </div>
+
+                    <div class="wp-hreflang-modal-buttons">
+                        <button id="wp-hreflang-cancel-button" class="button"><?php _e('Cancel', 'wp-hreflang'); ?></button>
+                        <button id="wp-hreflang-start-button" class="button button-primary"><?php _e('Start Rebuild', 'wp-hreflang'); ?></button>
+                        <button id="wp-hreflang-close-button" class="button button-primary" style="display: none;"><?php _e('Close', 'wp-hreflang'); ?></button>
+                    </div>
+                </div>
+            </div>
+        </div>
 <?php
     }
 
