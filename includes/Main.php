@@ -6,6 +6,7 @@ class Main
 {
     private $post;
     private $rest_controller;
+    private $batch_processor;
     private $hreflang_tags;
     private $settings;
     private $site_archive_settings;
@@ -35,6 +36,9 @@ class Main
 
         $this->rest_controller = new API\REST_Controller();
         $this->rest_controller->init();
+
+        $this->batch_processor = new API\Batch_Processor();
+        $this->batch_processor->init();
 
         $this->hreflang_tags = new Frontend\Hreflang_Tags();
         $this->hreflang_tags->init();
