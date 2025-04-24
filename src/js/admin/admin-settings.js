@@ -1,3 +1,6 @@
+// Import the CSS file so it gets processed by webpack
+import "../../../src/css/admin/admin-settings.css";
+
 /**
  * WordPress Hreflang Settings JS
  */

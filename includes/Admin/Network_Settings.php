@@ -3,6 +3,7 @@
 namespace WP_Hreflang\Admin;
 
 use WP_Hreflang\Helpers;
+use WP_Hreflang\Assets;
 
 class Network_Settings
 {
@@ -28,11 +29,11 @@ class Network_Settings
             return;
         }
         
-        wp_enqueue_script(
+        // Enqueue the admin settings script
+        Assets::enqueue_script(
             'wp-hreflang-admin-settings',
-            WP_HREFLANG_PLUGIN_URL . 'dist/js/admin-settings.js',
-            array('jquery'),
-            WP_HREFLANG_VERSION,
+            'admin-settings',
+            ['jquery'],
             true
         );
         
@@ -72,11 +73,11 @@ class Network_Settings
             ]
         ]);
         
-        wp_enqueue_style(
+        // Enqueue the admin settings styles
+        Assets::enqueue_style(
             'wp-hreflang-admin-settings',
-            WP_HREFLANG_PLUGIN_URL . 'dist/css/admin-settings.css',
-            array(),
-            WP_HREFLANG_VERSION
+            'admin-settings',
+            []
         );
     }
 

@@ -3,6 +3,7 @@
 namespace WP_Hreflang\Admin;
 
 use WP_Hreflang\Helpers;
+use WP_Hreflang\Assets;
 
 class Post
 {
@@ -54,9 +55,10 @@ class Post
             return;
         }
 
-        wp_enqueue_script(
-            'wp-hreflang-admin',
-            WP_HREFLANG_PLUGIN_URL . 'dist/js/admin.js',
+        // Enqueue the post editor script
+        Assets::enqueue_script(
+            'wp-hreflang-post',
+            'post',
             array(
                 'wp-plugins',
                 'wp-element',
@@ -65,11 +67,10 @@ class Post
                 'wp-i18n',
                 'wp-editor'
             ),
-            WP_HREFLANG_VERSION,
             true
         );
 
-        wp_localize_script('wp-hreflang-admin', 'wpHreflangSettings', [
+        wp_localize_script('wp-hreflang-post', 'wpHreflangSettings', [
             'nonce' => wp_create_nonce('wp_rest'),
             'root' => esc_url_raw(rest_url()) . 'wp-hreflang/v1',
         ]);
@@ -175,19 +176,21 @@ class Post
             delete_post_meta($post_id, 'hreflang_map');
             return;
         }
-        
+
         // If post was just published or permalink might have changed
-        if ($post_before->post_status !== 'publish' || 
-            $post_after->post_name !== $post_before->post_name || 
-            $post_after->post_type !== $post_before->post_type) {
-            
+        if (
+            $post_before->post_status !== 'publish' ||
+            $post_after->post_name !== $post_before->post_name ||
+            $post_after->post_type !== $post_before->post_type
+        ) {
+
             $hreflang_map = get_post_meta($post_id, 'hreflang_map', true);
-            
+
             // If map exists, update main site entries only
             if (!empty($hreflang_map)) {
                 $updated_map = Helpers::ensure_main_site_entries($hreflang_map, $post_id, true);
                 update_post_meta($post_id, 'hreflang_map', $updated_map);
-            } 
+            }
             // If post was just published or has no map, regenerate it from scratch
             else {
                 Helpers::rebuild_hreflang_maps($post_id);
@@ -200,4 +203,3 @@ class Post
         delete_post_meta($post_id, 'hreflang_map');
     }
 }
-
