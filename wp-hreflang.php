@@ -32,7 +32,7 @@ register_activation_hook(__FILE__, function () {
 });
 
 // Define plugin constants
-define('WP_HREFLANG_VERSION', '1.0.1');
+define('WP_HREFLANG_VERSION', '1.0.2');
 define('WP_HREFLANG_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WP_HREFLANG_PLUGIN_URL', plugin_dir_url(__FILE__));
 
