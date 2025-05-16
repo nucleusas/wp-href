@@ -5,8 +5,8 @@ namespace WP_Hreflang;
 class Main
 {
     private $post;
-    private $rest_controller;
-    private $batch_processor;
+    private $rest_post;
+    private $rest_admin;
     private $hreflang_tags;
     private $settings;
     private $site_archive_settings;
@@ -34,11 +34,11 @@ class Main
         $this->post = new Admin\Post();
         $this->post->init();
 
-        $this->rest_controller = new API\REST_Controller();
-        $this->rest_controller->init();
+        $this->rest_post = new API\REST_Post();
+        $this->rest_post->init();
 
-        $this->batch_processor = new API\Batch_Processor();
-        $this->batch_processor->init();
+        $this->rest_admin = new API\REST_Admin();
+        $this->rest_admin->init();
 
         $this->hreflang_tags = new Frontend\Hreflang_Tags();
         $this->hreflang_tags->init();

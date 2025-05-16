@@ -102,6 +102,61 @@ class Helpers
 
         return $body['permalink'];
     }
+    
+    public static function get_permalinks_via_rest($site_id, $post_ids)
+    {
+        if (empty($post_ids) || !is_array($post_ids)) {
+            return array();
+        }
+        
+        $site_url = get_site_url($site_id);
+        if (!$site_url) {
+            return array();
+        }
+
+        $api_url = trailingslashit($site_url);
+        $api_url .= 'wp-json/wp-hreflang/v1/get-permalinks';
+        
+        $response = wp_remote_post(esc_url_raw($api_url), array(
+            'timeout' => 15,
+            'sslverify' => false,
+            'body' => wp_json_encode(array(
+                'ids' => array_map('intval', $post_ids)
+            )),
+            'headers' => array(
+                'Content-Type' => 'application/json',
+            ),
+        ));
+
+        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
+            if (is_wp_error($response)) {
+                error_log(sprintf(
+                    'WP Hreflang: Failed to fetch permalinks from site %d. Error: %s',
+                    $site_id,
+                    $response->get_error_message()
+                ));
+            } else {
+                error_log(sprintf(
+                    'WP Hreflang: Failed to fetch permalinks from site %d. Status code: %d',
+                    $site_id,
+                    wp_remote_retrieve_response_code($response)
+                ));
+            }
+            return array();
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+        if (!isset($body['permalinks']) || !is_array($body['permalinks'])) {
+            error_log(sprintf(
+                'WP Hreflang: Invalid permalinks response from site %d. Response: %s',
+                $site_id,
+                wp_remote_retrieve_body($response)
+            ));
+            return array();
+        }
+
+        return $body['permalinks'];
+    }
 
     public static function update_hreflang_map($main_site_post_id, $locale, $permalink)
     {

@@ -4,9 +4,9 @@ namespace WP_Hreflang\API;
 
 use WP_Hreflang\Helpers;
 
-class Batch_Processor
+class REST_Admin
 {
-    private $batch_size = 25;
+    private $batch_size = 100;
     private $progress_option = 'wp_hreflang_rebuild_progress';
 
     public function init()
@@ -33,11 +33,81 @@ class Batch_Processor
             'callback' => array($this, 'get_status'),
             'permission_callback' => array($this, 'check_admin_permissions'),
         ));
+
+        register_rest_route('wp-hreflang/v1', '/update-settings', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'update_settings'),
+            'permission_callback' => array($this, 'check_admin_permissions'),
+        ));
     }
 
     public function check_admin_permissions()
     {
         return current_user_can('manage_network_options');
+    }
+
+    /**
+     * Update the network settings
+     */
+    public function update_settings($request)
+    {
+        try {
+            $params = $request->get_json_params();
+
+            if (!isset($params['nonce']) || !wp_verify_nonce($params['nonce'], 'wp_hreflang_network_settings')) {
+                return new \WP_Error(
+                    'invalid_nonce',
+                    'Invalid nonce',
+                    array('status' => 403)
+                );
+            }
+
+            $site_ids = $params['locales']['site_id'] ?? array();
+            $locales = $params['locales']['locale'] ?? array();
+
+            $locale_map = array();
+            foreach ($site_ids as $index => $site_id) {
+                if (!empty($site_id) && !empty($locales[$index])) {
+                    $locale_map[$site_id] = \WP_Hreflang\Helpers::format_locale_key(sanitize_text_field($locales[$index]));
+                }
+            }
+
+            $settings = array(
+                'locales' => $locale_map,
+                'post_types' => array_filter(array_map('sanitize_text_field', $params['post_types'] ?? array())),
+                'ignore_query_params' => isset($params['ignore_query_params']) ? 1 : 0
+            );
+
+            update_site_option('wp_hreflang_network_settings', $settings);
+
+            // Handle archive pages
+            $archive_pages = array();
+            $archive_names = $params['archive_pages']['name'] ?? array();
+            $archive_ids = $params['archive_pages']['id'] ?? array();
+
+            foreach ($archive_names as $index => $name) {
+                if (!empty($name)) {
+                    $id = !empty($archive_ids[$index]) ? sanitize_title($archive_ids[$index]) : sanitize_title($name);
+                    $archive_pages[] = array(
+                        'id' => $id,
+                        'name' => sanitize_text_field($name)
+                    );
+                }
+            }
+
+            update_site_option('wp_hreflang_archive_pages', $archive_pages);
+
+            return rest_ensure_response([
+                'success' => true,
+                'message' => 'Settings updated successfully',
+            ]);
+        } catch (\Exception $e) {
+            return new \WP_Error(
+                'rest_error',
+                $e->getMessage(),
+                array('status' => 500)
+            );
+        }
     }
 
     /**
@@ -119,7 +189,10 @@ class Batch_Processor
             switch_to_blog($current_site_id);
             $locale = Helpers::get_site_locale('key', $current_site_id);
 
-            // Process each post in the batch
+            // Collect valid posts and their main site relations
+            $valid_posts = [];
+            $post_relations = [];
+
             foreach ($batch_posts as $post_id) {
                 $post = get_post($post_id);
                 if (!$post || $post->post_status !== 'publish') {
@@ -127,18 +200,24 @@ class Batch_Processor
                 }
 
                 $main_site_post_id = get_post_meta($post_id, 'hreflang_relation', true);
-                restore_current_blog(); // Temporarily restore before REST call
-
-                $permalink = Helpers::get_permalink_via_rest($current_site_id, $post_id);
-
-                if ($permalink && $main_site_post_id) {
-                    Helpers::update_hreflang_map($main_site_post_id, $locale, $permalink);
+                if ($main_site_post_id) {
+                    $valid_posts[] = $post_id;
+                    $post_relations[$post_id] = $main_site_post_id;
                 }
-
-                switch_to_blog($current_site_id); // Switch back to continue
             }
 
             restore_current_blog();
+
+            if (!empty($valid_posts)) {
+                $permalinks = Helpers::get_permalinks_via_rest($current_site_id, $valid_posts);
+
+                foreach ($permalinks as $post_id => $permalink) {
+                    if ($permalink && isset($post_relations[$post_id])) {
+                        $main_site_post_id = $post_relations[$post_id];
+                        Helpers::update_hreflang_map($main_site_post_id, $locale, $permalink);
+                    }
+                }
+            }
 
             // Update progress
             $progress['current_post_index'] = $batch_end;
