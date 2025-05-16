@@ -146,17 +146,14 @@ class Helpers
 
         $update_main_site_permalink = false;
 
-        // Check if main site locale entry is missing or should be updated
         if (!isset($hreflang_map[$main_site_locale]) || $update_existing) {
             $update_main_site_permalink = true;
         }
 
-        // Check if language-only code is missing or should be updated
-        if ($main_site_locale_alt && (!isset($hreflang_map[$main_site_locale_alt]) || $update_existing)) {
+        if (($main_site_locale_alt && !isset($hreflang_map[$main_site_locale_alt]) || $update_existing)) {
             $update_main_site_permalink = true;
         }
 
-        // Check if x-default is missing or should be updated
         if (!isset($hreflang_map['x-default']) || $update_existing) {
             $update_main_site_permalink = true;
         }
@@ -189,96 +186,5 @@ class Helpers
         }
 
         return $hreflang_map;
-    }
-
-    public static function rebuild_hreflang_maps($main_site_post_id = null)
-    {
-        $main_site_id = get_main_site_id();
-
-        // Clear existing maps if rebuilding all
-        if ($main_site_post_id === null) {
-            switch_to_blog($main_site_id);
-            delete_post_meta_by_key('hreflang_map');
-            restore_current_blog();
-        } elseif ($main_site_post_id) {
-            // For single post, initialize empty map
-            switch_to_blog($main_site_id);
-            $existing_map = get_post_meta($main_site_post_id, 'hreflang_map', true);
-            $hreflang_map = $existing_map ?: array();
-            restore_current_blog();
-        } else {
-            return; // Invalid post ID
-        }
-
-        // Get all sites except main site
-        $sites = array_filter(get_sites(), function ($site) use ($main_site_id) {
-            return (int) $site->blog_id != (int) $main_site_id;
-        });
-
-        foreach ($sites as $site) {
-            $site_id = $site->blog_id;
-            $locale = self::get_site_locale('key', $site_id);
-
-            switch_to_blog($site_id);
-
-            // Prepare query args
-            $query_args = array(
-                'post_type' => 'any',
-                'posts_per_page' => -1,
-                'post_status' => 'publish',
-                'lang' => '',
-                'meta_query' => array(
-                    array(
-                        'key' => 'hreflang_relation',
-                        'compare' => 'EXISTS'
-                    )
-                )
-            );
-
-            // If rebuilding a specific post, filter by relation
-            if ($main_site_post_id !== null) {
-                $query_args['meta_query'] = array(
-                    array(
-                        'key' => 'hreflang_relation',
-                        'value' => $main_site_post_id,
-                        'compare' => '='
-                    )
-                );
-            }
-
-            $posts_with_relations = get_posts($query_args);
-
-            foreach ($posts_with_relations as $post) {
-                $post_main_site_id = get_post_meta($post->ID, 'hreflang_relation', true);
-                $post_id = $post->ID;
-                restore_current_blog();
-
-                $permalink = self::get_permalink_via_rest($site_id, $post_id);
-
-                if ($permalink) {
-                    // If rebuilding all posts, update each one
-                    if ($main_site_post_id === null) {
-                        self::update_hreflang_map($post_main_site_id, $locale, $permalink);
-                    }
-                    // If rebuilding specific post, update local map
-                    elseif ($post_main_site_id == $main_site_post_id) {
-                        $hreflang_map[$locale] = $permalink;
-                    }
-                }
-
-                switch_to_blog($site_id);
-            }
-
-            restore_current_blog();
-        }
-
-        // For single post, ensure main site entries
-        if ($main_site_post_id !== null && !empty($hreflang_map)) {
-            $hreflang_map = self::ensure_main_site_entries($hreflang_map, $main_site_post_id, true);
-
-            switch_to_blog($main_site_id);
-            update_post_meta($main_site_post_id, 'hreflang_map', $hreflang_map);
-            restore_current_blog();
-        }
     }
 }

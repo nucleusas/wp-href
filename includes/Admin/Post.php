@@ -171,29 +171,38 @@ class Post
 
     public function handle_main_site_post_update($post_id, $post_after, $post_before)
     {
+        // Temporary delete the hreflang map if not published
         if ($post_after->post_status !== 'publish') {
-            // If not published, remove the entire hreflang map
-            delete_post_meta($post_id, 'hreflang_map');
+            $hreflang_map = get_post_meta($post_id, 'hreflang_map', true);
+            if ($hreflang_map) {
+                update_post_meta($post_id, 'hreflang_map_deleted', $hreflang_map);
+                delete_post_meta($post_id, 'hreflang_map');
+            }
             return;
         }
 
-        // If post was just published or permalink might have changed
+        // If post was just published, republish the hreflang map if it was deleted
         if (
-            $post_before->post_status !== 'publish' ||
+            $post_before->post_status !== 'publish' &&
+            $post_after->post_status === 'publish'
+        ) {
+            $deleted_hreflang_map = get_post_meta($post_id, 'hreflang_map_deleted', true);
+
+            if ($deleted_hreflang_map) {
+                update_post_meta($post_id, 'hreflang_map', $deleted_hreflang_map);
+                delete_post_meta($post_id, 'hreflang_map_deleted');
+            }
+        }
+
+        // If main site post permalink changed, update main site hreflang entries
+        if (
             $post_after->post_name !== $post_before->post_name ||
             $post_after->post_type !== $post_before->post_type
         ) {
-
             $hreflang_map = get_post_meta($post_id, 'hreflang_map', true);
 
-            // If map exists, update main site entries only
-            if (!empty($hreflang_map)) {
-                $updated_map = Helpers::ensure_main_site_entries($hreflang_map, $post_id, true);
-                update_post_meta($post_id, 'hreflang_map', $updated_map);
-            }
-            // If post was just published or has no map, regenerate it from scratch
-            else {
-                Helpers::rebuild_hreflang_maps($post_id);
+            if ($hreflang_map) {
+                Helpers::ensure_main_site_entries($hreflang_map, $post_id, true);
             }
         }
     }

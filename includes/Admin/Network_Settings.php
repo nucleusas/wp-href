@@ -93,58 +93,6 @@ class Network_Settings
         );
     }
 
-    public function update_network_settings()
-    {
-        check_admin_referer('wp_hreflang_network_settings');
-
-        if (!current_user_can('manage_network_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.'));
-        }
-
-        $site_ids = $_POST['locales']['site_id'] ?? array();
-        $locales = $_POST['locales']['locale'] ?? array();
-
-        $locale_map = array();
-        foreach ($site_ids as $index => $site_id) {
-            if (!empty($site_id) && !empty($locales[$index])) {
-                $locale_map[$site_id] = Helpers::format_locale_key(sanitize_text_field($locales[$index]));
-            }
-        }
-
-        $settings = array(
-            'locales' => $locale_map,
-            'post_types' => array_filter(array_map('sanitize_text_field', $_POST['post_types'] ?? array())),
-            'ignore_query_params' => isset($_POST['ignore_query_params']) ? 1 : 0
-        );
-
-        update_site_option($this->option_name, $settings);
-
-        // Handle archive pages
-        $archive_pages = array();
-        $archive_names = $_POST['archive_pages']['name'] ?? array();
-        $archive_ids = $_POST['archive_pages']['id'] ?? array();
-
-        foreach ($archive_names as $index => $name) {
-            if (!empty($name)) {
-                $id = !empty($archive_ids[$index]) ? sanitize_title($archive_ids[$index]) : sanitize_title($name);
-                $archive_pages[] = array(
-                    'id' => $id,
-                    'name' => sanitize_text_field($name)
-                );
-            }
-        }
-
-        update_site_option($this->archive_pages_option, $archive_pages);
-
-        Helpers::rebuild_hreflang_maps();
-
-        wp_redirect(add_query_arg(array(
-            'page' => 'wp-hreflang-settings',
-            'updated' => 'true'
-        ), network_admin_url('settings.php')));
-        exit;
-    }
-
     public function check_duplicate_locales()
     {
         $all_locales = array();
