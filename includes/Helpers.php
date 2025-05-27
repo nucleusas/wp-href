@@ -195,12 +195,50 @@ class Helpers
 
     public static function ensure_main_site_entries($hreflang_map, $main_site_post_id, $update_existing = false)
     {
-        $main_site_id = get_main_site_id();
+        $main_site_id = get_network_option(get_current_network_id(), 'main_site');
         $main_site_locale = self::get_site_locale('key', $main_site_id);
-        $main_site_permalink = self::get_permalink_via_rest($main_site_id, $main_site_post_id);
+        $main_site_locale_alt = explode('-', $main_site_locale)[0] ?? null;
 
-        $hreflang_map[$main_site_locale] = $main_site_permalink;
-        $hreflang_map['x-default'] = $main_site_permalink;
+        $update_main_site_permalink = false;
+
+        if (!isset($hreflang_map[$main_site_locale]) || $update_existing) {
+            $update_main_site_permalink = true;
+        }
+
+        if (($main_site_locale_alt && !isset($hreflang_map[$main_site_locale_alt]) || $update_existing)) {
+            $update_main_site_permalink = true;
+        }
+
+        if (!isset($hreflang_map['x-default']) || $update_existing) {
+            $update_main_site_permalink = true;
+        }
+
+        if ($update_main_site_permalink) {
+            $main_site_permalink = self::get_permalink_via_rest($main_site_id, $main_site_post_id);
+
+            if ($main_site_permalink) {
+                // Add or update main site locale entry
+                if (!isset($hreflang_map[$main_site_locale]) || $update_existing) {
+                    $hreflang_map[$main_site_locale] = $main_site_permalink;
+                }
+
+                // Add or update language-only code if applicable
+                if ($main_site_locale_alt && (!isset($hreflang_map[$main_site_locale_alt]) || $update_existing)) {
+                    $hreflang_map[$main_site_locale_alt] = $main_site_permalink;
+                }
+
+                // Add or update x-default entry
+                if (!isset($hreflang_map['x-default']) || $update_existing) {
+                    $hreflang_map['x-default'] = $main_site_permalink;
+                }
+            } else {
+                // Couldn't get the permalink
+                error_log(sprintf(
+                    'WP Hreflang: Failed to get permalink for main site post %d',
+                    $main_site_post_id
+                ));
+            }
+        }
 
         return $hreflang_map;
     }
