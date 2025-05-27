@@ -62,13 +62,23 @@ class Helpers
             return false;
         }
 
-        $api_url = trailingslashit($site_url);
-        $api_url .= 'wp-json/wp-hreflang/v1/get-permalink/' . $post_id;
+        $api_url = 'wp-json/wp-hreflang/v1/get-permalink/' . $post_id;
 
-        $response = wp_remote_get(esc_url_raw($api_url), array(
+        $response = wp_remote_get(esc_url_raw(trailingslashit($site_url) . $api_url), array(
             'timeout' => 15,
             'sslverify' => false,
         ));
+
+        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
+            // try to get the permalink from the home url instead
+            // if main site and wp is a subfolder install, get_site_url might be wrong
+            $site_url = get_home_url($site_id);
+
+            $response = wp_remote_get(esc_url_raw(trailingslashit($site_url) . $api_url), array(
+                'timeout' => 15,
+                'sslverify' => false,
+            ));
+        }
 
         if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
             if (is_wp_error($response)) {
