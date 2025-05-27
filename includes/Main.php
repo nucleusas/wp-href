@@ -7,7 +7,6 @@ class Main
     private $post;
     private $rest_post;
     private $rest_admin;
-    private $rest_debug;
     private $hreflang_tags;
     private $settings;
     private $site_archive_settings;
@@ -40,9 +39,6 @@ class Main
 
         $this->rest_admin = new API\REST_Admin();
         $this->rest_admin->init();
-
-        $this->rest_debug = new API\REST_Debug();
-        $this->rest_debug->init();
 
         $this->hreflang_tags = new Frontend\Hreflang_Tags();
         $this->hreflang_tags->init();

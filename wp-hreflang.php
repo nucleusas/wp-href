@@ -3,7 +3,7 @@
 /**
  * Plugin Name: WP Hreflang
  * Description: Manage hreflang tags across a WordPress multisite network, using the main site as a source of truth.
- * Version: 1.0.8
+ * Version: 1.0.9
  * Author: Nucleus AS
  * License: GPLv2 or later
  * Text Domain: wp-hreflang
@@ -32,7 +32,7 @@ register_activation_hook(__FILE__, function () {
 });
 
 // Define plugin constants
-define('WP_HREFLANG_VERSION', '1.0.8');
+define('WP_HREFLANG_VERSION', '1.0.9');
 define('WP_HREFLANG_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WP_HREFLANG_PLUGIN_URL', plugin_dir_url(__FILE__));
 
